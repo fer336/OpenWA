@@ -336,3 +336,37 @@
     display: none;
   }
 }
+
+/* ==================== RTL support ==================== */
+[dir="rtl"] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+[dir="rtl"] .collapse-toggle {
+  right: auto;
+  left: -14px;
+}
+
+[dir="rtl"] .collapse-toggle svg {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .main-content {
+  margin-left: 0;
+  margin-right: 260px;
+  transition:
+    margin-right 0.3s ease,
+    width 0.3s ease;
+}
+
+[dir="rtl"] .main-content.expanded {
+  margin-right: 72px;
+}
+
+@media (max-width: 768px) {
+  [dir="rtl"] .main-content,
+  [dir="rtl"] .main-content.mobile {
+    margin-right: 0;
+  }
+}

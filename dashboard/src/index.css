@@ -1,7 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap');
+
 :root {
   font-family: 'Plus Jakarta Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.6;
   font-weight: 400;
+}
+
+html[lang="he"],
+html[dir="rtl"] {
+  font-family: 'Heebo', 'Rubik', 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif;
+}
+
+:root {
 
   color-scheme: light dark;
   color: var(--text-primary);
@@ -121,9 +131,7 @@ select:disabled {
   cursor: not-allowed;
 }
 
-/* ============================================
-   GLOBAL MODAL STYLES
-   ============================================ */
+/* GLOBAL MODAL STYLES */
 
 /* Modal Overlay */
 .modal-overlay {
@@ -298,3 +306,56 @@ code {
   font-size: 0.875em;
   color: var(--text-primary, #1e293b);
 }
+
+/* RTL / Hebrew direction support */
+
+/* Keep code, technical identifiers, and numbers LTR even inside RTL containers */
+[dir="rtl"] code,
+[dir="rtl"] .mono,
+[dir="rtl"] pre {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: embed;
+}
+
+/* Modal footer: actions should align to the start of the writing direction */
+[dir="rtl"] .modal-footer {
+  justify-content: flex-end;
+  flex-direction: row-reverse;
+}
+
+/* Select dropdown caret on the opposite side */
+[dir="rtl"] select {
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  background-position: left 0.75rem center;
+}
+
+/* Inputs in modals: text aligns naturally */
+[dir="rtl"] .modal-body input,
+[dir="rtl"] .modal-body textarea,
+[dir="rtl"] input[type="text"],
+[dir="rtl"] input[type="url"],
+[dir="rtl"] input[type="password"],
+[dir="rtl"] input[type="number"],
+[dir="rtl"] textarea {
+  text-align: right;
+}
+
+/* URLs, emails, phones — force LTR even inside RTL */
+[dir="rtl"] input[type="url"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="tel"] {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"] .page-header__top {
+  flex-direction: row-reverse;
+}
+
+/* Toast container — slide in from the opposite side */
+[dir="rtl"] .toast-container {
+  right: auto;
+  left: 1rem;
+}
+

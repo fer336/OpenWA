@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { messageApi } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -14,8 +15,11 @@ interface ApiResponse {
   error?: string;
 }
 
+const messageTypes = ['text', 'image', 'video', 'audio', 'document'] as const;
+
 export function MessageTester() {
-  useDocumentTitle('Message Tester');
+  const { t } = useTranslation();
+  useDocumentTitle(t('messageTester.title'));
   const { canWrite } = useRole();
   const { data: allSessions = [], isLoading: loadingSessions } = useSessionsQuery();
   const sessions = allSessions.filter(s => s.status === 'ready');
@@ -23,7 +27,7 @@ export function MessageTester() {
   const [recipient, setRecipient] = useState('');
   const [recipientType, setRecipientType] = useState<'personal' | 'group'>('personal');
   const [selectedGroup, setSelectedGroup] = useState('');
-  const [messageType, setMessageType] = useState<'text' | 'image' | 'video' | 'audio' | 'document'>('text');
+  const [messageType, setMessageType] = useState<typeof messageTypes[number]>('text');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,14 +38,12 @@ export function MessageTester() {
     recipientType === 'group',
   );
 
-  // Auto-select first session
   useEffect(() => {
     if (sessions.length > 0 && !session) {
       setSession(sessions[0].id);
     }
   }, [sessions, session]);
 
-  // Auto-select first group
   useEffect(() => {
     if (groups.length > 0 && !selectedGroup) {
       setSelectedGroup(groups[0].id);
@@ -52,13 +54,11 @@ export function MessageTester() {
   }, [groups, selectedGroup, recipientType]);
 
   const handleSend = async () => {
-    // For groups, use selectedGroup; for personal, use recipient
     const targetId = recipientType === 'group' ? selectedGroup : recipient;
     if (!session || !targetId) return;
     setIsLoading(true);
     setResponse(null);
 
-    // For personal, add @c.us suffix; for group, ID already has @g.us
     const chatId = recipientType === 'group' ? targetId : targetId.replace(/[^0-9]/g, '') + '@c.us';
 
     try {
@@ -75,7 +75,6 @@ export function MessageTester() {
         result = await messageApi.sendDocument(session, chatId, mediaUrl, content);
       }
 
-      // Infer success from having messageId - backend doesn't return success field
       setResponse({
         success: !!result.messageId,
         messageId: result.messageId,
@@ -85,7 +84,7 @@ export function MessageTester() {
       setResponse({
         success: false,
         timestamp: new Date().toISOString(),
-        error: err instanceof Error ? err.message : 'Failed to send message',
+        error: err instanceof Error ? err.message : t('messageTester.sendFailed'),
       });
     } finally {
       setIsLoading(false);
@@ -105,41 +104,41 @@ export function MessageTester() {
 
   return (
     <div className="message-tester">
-      <PageHeader title="Message Tester" subtitle="Send test messages through the API" />
+      <PageHeader title={t('messageTester.title')} subtitle={t('messageTester.subtitle')} />
 
       <div className="tester-panels">
         <div className="compose-panel">
-          <h2>Send Test Message</h2>
+          <h2>{t('messageTester.compose')}</h2>
 
           <div className="form-group">
-            <label>Session</label>
+            <label>{t('messageTester.session')}</label>
             <select value={session} onChange={e => setSession(e.target.value)}>
-              {sessions.length === 0 && <option value="">No ready sessions</option>}
+              {sessions.length === 0 && <option value="">{t('messageTester.noReadySessions')}</option>}
               {sessions.map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.phone || 'No phone'})
+                  {s.name} ({s.phone || t('messageTester.sessionOptionPhoneNone')})
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Recipient Type</label>
+            <label>{t('messageTester.recipientType')}</label>
             <div className="toggle-group">
               <button
                 className={recipientType === 'personal' ? 'active' : ''}
                 onClick={() => setRecipientType('personal')}
               >
-                Personal
+                {t('messageTester.personal')}
               </button>
               <button className={recipientType === 'group' ? 'active' : ''} onClick={() => setRecipientType('group')}>
-                Group
+                {t('messageTester.group')}
               </button>
             </div>
           </div>
 
           <div className="form-group">
-            <label>{recipientType === 'group' ? 'Select Group' : 'Recipient Phone Number'}</label>
+            <label>{recipientType === 'group' ? t('messageTester.selectGroup') : t('messageTester.recipientPhone')}</label>
             {recipientType === 'group' ? (
               <>
                 <select
@@ -147,15 +146,15 @@ export function MessageTester() {
                   onChange={e => setSelectedGroup(e.target.value)}
                   disabled={loadingGroups || groups.length === 0}
                 >
-                  {loadingGroups && <option value="">Loading groups...</option>}
-                  {!loadingGroups && groups.length === 0 && <option value="">No groups found</option>}
+                  {loadingGroups && <option value="">{t('messageTester.loadingGroups')}</option>}
+                  {!loadingGroups && groups.length === 0 && <option value="">{t('messageTester.noGroupsFound')}</option>}
                   {groups.map(g => (
                     <option key={g.id} value={g.id}>
                       {g.name}
                     </option>
                   ))}
                 </select>
-                <span className="hint">Select a group from your WhatsApp</span>
+                <span className="hint">{t('messageTester.selectGroupHint')}</span>
               </>
             ) : (
               <>
@@ -165,21 +164,21 @@ export function MessageTester() {
                   onChange={e => setRecipient(e.target.value)}
                   placeholder="+62812345678"
                 />
-                <span className="hint">Use international format without spaces</span>
+                <span className="hint">{t('messageTester.phoneHint')}</span>
               </>
             )}
           </div>
 
           <div className="form-group">
-            <label>Message Type</label>
+            <label>{t('messageTester.messageType')}</label>
             <div className="toggle-group">
-              {(['text', 'image', 'video', 'audio', 'document'] as const).map(type => (
+              {messageTypes.map(type => (
                 <button
                   key={type}
                   className={messageType === type ? 'active' : ''}
                   onClick={() => setMessageType(type)}
                 >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {t(`messageTester.types.${type}`)}
                 </button>
               ))}
             </div>
@@ -187,18 +186,18 @@ export function MessageTester() {
 
           {messageType === 'text' ? (
             <div className="form-group">
-              <label>Message Content</label>
+              <label>{t('messageTester.messageContent')}</label>
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
-                placeholder="Enter your message here..."
+                placeholder={t('messageTester.messagePlaceholder')}
                 rows={5}
               />
             </div>
           ) : (
             <>
               <div className="form-group">
-                <label>Media URL</label>
+                <label>{t('messageTester.mediaUrl')}</label>
                 <input
                   type="text"
                   value={mediaUrl}
@@ -208,12 +207,14 @@ export function MessageTester() {
               </div>
               {messageType !== 'audio' && (
                 <div className="form-group">
-                  <label>{messageType === 'document' ? 'Filename' : 'Caption'} (optional)</label>
+                  <label>
+                    {messageType === 'document' ? t('messageTester.filename') : t('messageTester.caption')} ({t('common.optional')})
+                  </label>
                   <input
                     type="text"
                     value={content}
                     onChange={e => setContent(e.target.value)}
-                    placeholder={messageType === 'document' ? 'document.pdf' : 'Enter caption...'}
+                    placeholder={messageType === 'document' ? t('messageTester.filenamePlaceholder') : t('messageTester.captionPlaceholder')}
                   />
                 </div>
               )}
@@ -226,12 +227,12 @@ export function MessageTester() {
             disabled={!canWrite || isLoading || !session || (recipientType === 'group' ? !selectedGroup : !recipient)}
           >
             {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-            {isLoading ? 'Sending...' : canWrite ? 'Send Message' : 'View Only'}
+            {isLoading ? t('messageTester.sending') : canWrite ? t('messageTester.send') : t('messageTester.viewOnly')}
           </button>
         </div>
 
         <div className="response-panel">
-          <h2>API Response</h2>
+          <h2>{t('messageTester.responseTitle')}</h2>
 
           {response ? (
             <>
@@ -239,30 +240,30 @@ export function MessageTester() {
                 {response.success ? (
                   <>
                     <CheckCircle size={20} />
-                    <span>200 OK - Success</span>
+                    <span>{t('messageTester.successLabel')}</span>
                   </>
                 ) : (
                   <>
                     <XCircle size={20} />
-                    <span>400 - Failed</span>
+                    <span>{t('messageTester.failedLabel')}</span>
                   </>
                 )}
               </div>
 
               <div className="response-details">
                 <div className="detail-row">
-                  <span className="detail-label">Timestamp</span>
+                  <span className="detail-label">{t('messageTester.response.timestamp')}</span>
                   <span className="detail-value">{response.timestamp}</span>
                 </div>
                 {response.messageId && (
                   <div className="detail-row">
-                    <span className="detail-label">Message ID</span>
+                    <span className="detail-label">{t('messageTester.response.messageId')}</span>
                     <span className="detail-value mono">{response.messageId}</span>
                   </div>
                 )}
                 {response.error && (
                   <div className="detail-row">
-                    <span className="detail-label">Error</span>
+                    <span className="detail-label">{t('messageTester.response.error')}</span>
                     <span className="detail-value" style={{ color: '#DC2626' }}>
                       {response.error}
                     </span>
@@ -276,7 +277,7 @@ export function MessageTester() {
             </>
           ) : (
             <div className="response-empty">
-              <p>Send a message to see the API response</p>
+              <p>{t('messageTester.responseEmpty')}</p>
             </div>
           )}
         </div>

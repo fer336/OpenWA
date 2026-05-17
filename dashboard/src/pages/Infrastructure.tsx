@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   Database,
   Server,
@@ -19,7 +20,6 @@ import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 import './Infrastructure.css';
 
-// Watermark icons
 import sqliteIcon from '../assets/icons/sqlite.svg';
 import postgresIcon from '../assets/icons/postgresql.svg';
 import folderIcon from '../assets/icons/folder.svg';
@@ -84,7 +84,8 @@ interface RateLimitConfig {
 }
 
 export function Infrastructure() {
-  useDocumentTitle('Infrastructure');
+  const { t } = useTranslation();
+  useDocumentTitle(t('infrastructure.title'));
   const toast = useToast();
   const { data: infraStatus, isLoading: loading } = useInfraStatusQuery();
   const [saving, setSaving] = useState(false);
@@ -131,7 +132,7 @@ export function Infrastructure() {
   const [redisEnabled, setRedisEnabled] = useState(false);
   const [queueEnabled, setQueueEnabled] = useState(false);
   const [pendingProfiles, setPendingProfiles] = useState<string[]>([]);
-  const [previousProfiles, setPreviousProfiles] = useState<string[]>([]); // Track previously enabled for removal
+  const [previousProfiles, setPreviousProfiles] = useState<string[]>([]);
 
   const [serverConfig, setServerConfig] = useState<ServerConfig>({
     port: '2785',
@@ -154,7 +155,6 @@ export function Infrastructure() {
     max: 100,
   });
 
-  // Populate config state from infra status query data
   useEffect(() => {
     if (!infraStatus) return;
 
@@ -184,7 +184,6 @@ export function Infrastructure() {
     });
   }, [infraStatus]);
 
-  // Show loading state
   if (loading) {
     return (
       <div
@@ -196,97 +195,42 @@ export function Infrastructure() {
     );
   }
 
-  const updateDbConfig = (key: keyof DatabaseConfig, value: string | number | boolean) => {
+  const updateDbConfig = (key: keyof DatabaseConfig, value: string | number | boolean) =>
     setDbConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateRedisConfig = (key: keyof RedisConfig, value: string | boolean) => {
+  const updateRedisConfig = (key: keyof RedisConfig, value: string | boolean) =>
     setRedisConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateStorageConfig = (key: keyof StorageConfig, value: string | boolean) => {
+  const updateStorageConfig = (key: keyof StorageConfig, value: string | boolean) =>
     setStorageConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateServerConfig = (key: keyof ServerConfig, value: string) => {
+  const updateServerConfig = (key: keyof ServerConfig, value: string) =>
     setServerConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateWebhookConfig = (key: keyof WebhookConfig, value: number) => {
+  const updateWebhookConfig = (key: keyof WebhookConfig, value: number) =>
     setWebhookConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateRateLimitConfig = (key: keyof RateLimitConfig, value: number) => {
+  const updateRateLimitConfig = (key: keyof RateLimitConfig, value: number) =>
     setRateLimitConfig(prev => ({ ...prev, [key]: value }));
-  };
 
-  // Save and restart handlers
   const handleSaveConfig = async () => {
     setSaving(true);
     try {
       const payload = {
-        database: {
-          type: dbConfig.type,
-          builtIn: dbConfig.builtIn,
-          host: dbConfig.host,
-          port: dbConfig.port,
-          username: dbConfig.username,
-          password: dbConfig.password,
-          database: dbConfig.database,
-          poolSize: dbConfig.poolSize,
-          sslEnabled: dbConfig.sslEnabled,
-        },
-        redis: {
-          enabled: redisEnabled,
-          builtIn: redisConfig.builtIn,
-          host: redisConfig.host,
-          port: redisConfig.port,
-          password: redisConfig.password,
-        },
-        queue: {
-          enabled: queueEnabled,
-        },
-        storage: {
-          type: storageConfig.type,
-          builtIn: storageConfig.builtIn,
-          localPath: storageConfig.localPath,
-          s3Bucket: storageConfig.s3Bucket,
-          s3Region: storageConfig.s3Region,
-          s3AccessKey: storageConfig.s3AccessKey,
-          s3SecretKey: storageConfig.s3SecretKey,
-          s3Endpoint: storageConfig.s3Endpoint,
-        },
-        server: {
-          port: serverConfig.port,
-          nodeEnv: serverConfig.nodeEnv,
-          domain: serverConfig.domain,
-          dashboardPort: serverConfig.dashboardPort,
-          baseUrl: serverConfig.baseUrl,
-          dashboardUrl: serverConfig.dashboardUrl,
-          corsOrigins: serverConfig.corsOrigins,
-        },
-        webhook: {
-          timeout: webhookConfig.timeout,
-          maxRetries: webhookConfig.maxRetries,
-          retryDelay: webhookConfig.retryDelay,
-        },
-        rateLimit: {
-          ttl: rateLimitConfig.ttl,
-          max: rateLimitConfig.max,
-        },
+        database: { ...dbConfig },
+        redis: { enabled: redisEnabled, ...redisConfig },
+        queue: { enabled: queueEnabled },
+        storage: { ...storageConfig },
+        server: { ...serverConfig },
+        webhook: { ...webhookConfig },
+        rateLimit: { ...rateLimitConfig },
       };
 
       const result = await infraApi.saveConfig(payload);
       if (result.saved) {
-        // Store current profiles as previous before updating to new ones
         setPreviousProfiles(pendingProfiles);
         setPendingProfiles(result.profiles || []);
         setShowRestartModal(true);
       } else {
-        toast.error('Save Failed', result.message);
+        toast.error(t('infrastructure.toasts.saveFailed'), result.message);
       }
     } catch (err) {
-      toast.error('Save Failed', err instanceof Error ? err.message : 'Unknown error');
+      toast.error(t('infrastructure.toasts.saveFailed'), err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setSaving(false);
     }
@@ -294,27 +238,19 @@ export function Infrastructure() {
 
   const handleRestart = async () => {
     setRestartStatus('restarting');
-    setRestartCountdown(30); // Default, will be updated after API call
+    setRestartCountdown(30);
 
-    // Compute profiles to remove (were enabled before, now disabled)
     const profilesToRemove = previousProfiles.filter(p => !pendingProfiles.includes(p));
 
     try {
       const response = await infraApi.restart(pendingProfiles, profilesToRemove);
-      // Use server-provided estimated time if available
-      if (response.estimatedTime) {
-        setRestartCountdown(response.estimatedTime);
-      }
+      if (response.estimatedTime) setRestartCountdown(response.estimatedTime);
     } catch {
-      // Expected - server is shutting down, use default countdown
+      // Expected — server shutting down
     }
 
-    // Start countdown (visual feedback only)
     setRestartStatus('waiting');
-
-    // Store interval ID to allow early termination when health check succeeds
     let intervalRef: ReturnType<typeof setInterval> | null = null;
-
     const stopCountdown = () => {
       if (intervalRef) {
         clearInterval(intervalRef);
@@ -332,71 +268,61 @@ export function Infrastructure() {
       });
     }, 1000);
 
-    // Start health polling IMMEDIATELY - this is more accurate than countdown
-    // Server will respond as soon as it's ready, stopping countdown early
     checkServerHealth(stopCountdown);
   };
 
   const checkServerHealth = async (stopCountdown?: () => void) => {
     let attempts = 0;
-    const maxAttempts = 60; // Allow up to 60 attempts (60 seconds)
+    const maxAttempts = 60;
 
     const check = async () => {
       try {
         await infraApi.healthCheck();
-        // Server is back! Stop countdown and show success
         stopCountdown?.();
         setRestartCountdown(0);
         setRestartStatus('success');
-        // Reload page after 2 seconds
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        setTimeout(() => window.location.reload(), 2000);
       } catch {
         attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(check, 1000);
-        } else {
-          setRestartStatus('error');
-        }
+        if (attempts < maxAttempts) setTimeout(check, 1000);
+        else setRestartStatus('error');
       }
     };
 
-    // Start checking immediately with a small delay for server to begin shutdown
     setTimeout(check, 3000);
   };
 
   return (
     <div className="infrastructure-page">
-      <PageHeader title="Infrastructure" subtitle="Configure server, database, cache, storage, and engine settings" />
+      <PageHeader title={t('infrastructure.title')} subtitle={t('infrastructure.subtitle')} />
 
       <div className="infra-sections">
-        {/* Server Configuration Section */}
+        {/* Server Configuration */}
         <section className="infra-card">
           <div className="card-header">
             <div className="header-left">
               <Globe size={20} />
-              <h2>Server Configuration</h2>
+              <h2>{t('infrastructure.server.title')}</h2>
             </div>
             <span className={`status-indicator ${serverConfig.nodeEnv === 'production' ? 'connected' : 'sqlite'}`}>
-              ● {serverConfig.nodeEnv === 'production' ? 'Production' : 'Development'}
+              ● {serverConfig.nodeEnv === 'production' ? t('infrastructure.server.production') : t('infrastructure.server.development')}
             </span>
           </div>
 
           <div className="config-form">
             <div className="form-row">
               <div className="form-group">
-                <label>Environment</label>
+                <label>{t('infrastructure.server.environment')}</label>
                 <select
                   value={serverConfig.nodeEnv}
                   onChange={e => updateServerConfig('nodeEnv', e.target.value as 'production' | 'development')}
                 >
-                  <option value="production">Production</option>
-                  <option value="development">Development</option>
+                  <option value="production">{t('infrastructure.server.production')}</option>
+                  <option value="development">{t('infrastructure.server.development')}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Domain</label>
+                <label>{t('infrastructure.server.domain')}</label>
                 <input
                   type="text"
                   value={serverConfig.domain}
@@ -407,15 +333,11 @@ export function Infrastructure() {
             </div>
             <div className="form-row">
               <div className="form-group small">
-                <label>API Port</label>
-                <input
-                  type="text"
-                  value={serverConfig.port}
-                  onChange={e => updateServerConfig('port', e.target.value)}
-                />
+                <label>{t('infrastructure.server.apiPort')}</label>
+                <input type="text" value={serverConfig.port} onChange={e => updateServerConfig('port', e.target.value)} />
               </div>
               <div className="form-group small">
-                <label>Dashboard Port</label>
+                <label>{t('infrastructure.server.dashboardPort')}</label>
                 <input
                   type="text"
                   value={serverConfig.dashboardPort}
@@ -423,18 +345,18 @@ export function Infrastructure() {
                 />
               </div>
               <div className="form-group">
-                <label>CORS Origins</label>
+                <label>{t('infrastructure.server.corsOrigins')}</label>
                 <input
                   type="text"
                   value={serverConfig.corsOrigins}
                   onChange={e => updateServerConfig('corsOrigins', e.target.value)}
-                  placeholder="* or comma-separated origins"
+                  placeholder={t('infrastructure.server.corsPlaceholder')}
                 />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Public API URL (optional)</label>
+                <label>{t('infrastructure.server.publicApiUrl')}</label>
                 <input
                   type="text"
                   value={serverConfig.baseUrl}
@@ -443,7 +365,7 @@ export function Infrastructure() {
                 />
               </div>
               <div className="form-group">
-                <label>Public Dashboard URL (optional)</label>
+                <label>{t('infrastructure.server.publicDashboardUrl')}</label>
                 <input
                   type="text"
                   value={serverConfig.dashboardUrl}
@@ -455,23 +377,23 @@ export function Infrastructure() {
           </div>
         </section>
 
-        {/* Webhook & Rate Limiting Section */}
+        {/* Webhook & Rate Limiting */}
         <section className="infra-card">
           <div className="card-header">
             <div className="header-left">
               <Webhook size={20} />
-              <h2>Webhook & Rate Limiting</h2>
+              <h2>{t('infrastructure.webhook.title')}</h2>
             </div>
           </div>
 
           <div className="config-form">
             <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', color: '#475569', fontWeight: 600 }}>
-              <Webhook size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-              Webhook Settings
+              <Webhook size={16} style={{ marginInlineEnd: '0.5rem', verticalAlign: 'middle' }} />
+              {t('infrastructure.webhook.settings')}
             </h3>
             <div className="form-row">
               <div className="form-group">
-                <label>Timeout (ms)</label>
+                <label>{t('infrastructure.webhook.timeout')}</label>
                 <input
                   type="number"
                   value={webhookConfig.timeout}
@@ -479,7 +401,7 @@ export function Infrastructure() {
                 />
               </div>
               <div className="form-group small">
-                <label>Max Retries</label>
+                <label>{t('infrastructure.webhook.maxRetries')}</label>
                 <input
                   type="number"
                   min="0"
@@ -489,7 +411,7 @@ export function Infrastructure() {
                 />
               </div>
               <div className="form-group">
-                <label>Retry Delay (ms)</label>
+                <label>{t('infrastructure.webhook.retryDelay')}</label>
                 <input
                   type="number"
                   value={webhookConfig.retryDelay}
@@ -500,12 +422,12 @@ export function Infrastructure() {
 
             <div style={{ borderTop: '1px solid var(--border)', margin: '1.5rem 0', paddingTop: '1.5rem' }}>
               <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', color: '#475569', fontWeight: 600 }}>
-                <Gauge size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Rate Limiting
+                <Gauge size={16} style={{ marginInlineEnd: '0.5rem', verticalAlign: 'middle' }} />
+                {t('infrastructure.webhook.rateLimit')}
               </h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Time Window (seconds)</label>
+                  <label>{t('infrastructure.webhook.window')}</label>
                   <input
                     type="number"
                     value={rateLimitConfig.ttl}
@@ -513,7 +435,7 @@ export function Infrastructure() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Max Requests per Window</label>
+                  <label>{t('infrastructure.webhook.maxReq')}</label>
                   <input
                     type="number"
                     value={rateLimitConfig.max}
@@ -525,12 +447,12 @@ export function Infrastructure() {
           </div>
         </section>
 
-        {/* Database Section */}
+        {/* Database */}
         <section className="infra-card">
           <div className="card-header">
             <div className="header-left">
               <Database size={20} />
-              <h2>Database Configuration</h2>
+              <h2>{t('infrastructure.database.title')}</h2>
             </div>
             <span className={`status-indicator ${dbConfig.type === 'postgres' ? 'connected' : 'sqlite'}`}>
               ● {dbConfig.type === 'postgres' ? 'PostgreSQL' : 'SQLite'}
@@ -546,8 +468,8 @@ export function Infrastructure() {
                 onChange={() => updateDbConfig('type', 'sqlite')}
               />
               <img src={sqliteIcon} alt="" className="watermark-icon" />
-              <span>SQLite</span>
-              <small>Local file-based database</small>
+              <span>{t('infrastructure.database.sqlite')}</span>
+              <small>{t('infrastructure.database.sqliteDesc')}</small>
             </label>
             <label className={`radio-option ${dbConfig.type === 'postgres' ? 'selected' : ''}`}>
               <input
@@ -557,8 +479,8 @@ export function Infrastructure() {
                 onChange={() => updateDbConfig('type', 'postgres')}
               />
               <img src={postgresIcon} alt="" className="watermark-icon" />
-              <span>PostgreSQL</span>
-              <small>Production-ready database</small>
+              <span>{t('infrastructure.database.postgres')}</span>
+              <small>{t('infrastructure.database.postgresDesc')}</small>
             </label>
           </div>
 
@@ -566,8 +488,8 @@ export function Infrastructure() {
             <>
               <div className="toggle-row" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
                 <div className="toggle-info">
-                  <span>Use Built-in PostgreSQL Container</span>
-                  <small>OpenWA will manage a PostgreSQL container for you</small>
+                  <span>{t('infrastructure.database.useBuiltIn')}</span>
+                  <small>{t('infrastructure.database.builtInDesc')}</small>
                 </div>
                 <label className="toggle-switch">
                   <input
@@ -583,17 +505,17 @@ export function Infrastructure() {
                 <div className="config-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Host</label>
+                      <label>{t('common.host')}</label>
                       <input type="text" value={dbConfig.host} onChange={e => updateDbConfig('host', e.target.value)} />
                     </div>
                     <div className="form-group small">
-                      <label>Port</label>
+                      <label>{t('common.port')}</label>
                       <input type="text" value={dbConfig.port} onChange={e => updateDbConfig('port', e.target.value)} />
                     </div>
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Username</label>
+                      <label>{t('common.username')}</label>
                       <input
                         type="text"
                         value={dbConfig.username}
@@ -601,7 +523,7 @@ export function Infrastructure() {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Password</label>
+                      <label>{t('common.password')}</label>
                       <input
                         type="password"
                         value={dbConfig.password}
@@ -611,7 +533,7 @@ export function Infrastructure() {
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Database Name</label>
+                      <label>{t('infrastructure.database.dbName')}</label>
                       <input
                         type="text"
                         value={dbConfig.database}
@@ -619,7 +541,7 @@ export function Infrastructure() {
                       />
                     </div>
                     <div className="form-group small">
-                      <label>Pool Size</label>
+                      <label>{t('infrastructure.database.poolSize')}</label>
                       <input
                         type="number"
                         min="1"
@@ -631,8 +553,8 @@ export function Infrastructure() {
                   </div>
                   <div className="toggle-row">
                     <div className="toggle-info">
-                      <span>SSL Connection</span>
-                      <small>Enable TLS/SSL for secure database connections</small>
+                      <span>{t('infrastructure.database.ssl')}</span>
+                      <small>{t('infrastructure.database.sslDesc')}</small>
                     </div>
                     <label className="toggle-switch">
                       <input
@@ -660,7 +582,9 @@ export function Infrastructure() {
             }}
           >
             <Database size={32} style={{ color: '#22C55E', marginBottom: '1rem', opacity: 0.7 }} />
-            <p style={{ margin: 0, color: '#475569', fontSize: '0.9375rem', fontWeight: 500 }}>Database Migrations</p>
+            <p style={{ margin: 0, color: '#475569', fontSize: '0.9375rem', fontWeight: 500 }}>
+              {t('infrastructure.database.migrationsTitle')}
+            </p>
             <p
               style={{
                 margin: '0.75rem 0 0',
@@ -674,25 +598,29 @@ export function Infrastructure() {
               }}
             >
               <CheckCircle size={16} />
-              Schema is auto-synchronized with TypeORM
+              {t('infrastructure.database.migrationsStatus')}
             </p>
             <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.8125rem', lineHeight: 1.5 }}>
-              Migrations are managed automatically. Use CLI for manual migrations.
+              {t('infrastructure.database.migrationsHint')}
             </p>
           </div>
         </section>
 
-        {/* Redis Section */}
+        {/* Redis */}
         <section className="infra-card">
           <div className="card-header">
             <div className="header-left">
               <Server size={20} />
-              <h2>Redis</h2>
+              <h2>{t('infrastructure.redis.title')}</h2>
             </div>
             <span
               className={`status-indicator ${redisEnabled && redisConfig.connected ? 'connected' : 'disconnected'}`}
             >
-              ● {redisEnabled ? (redisConfig.connected ? 'Connected' : 'Disconnected') : 'Disabled'}
+              ● {redisEnabled
+                ? redisConfig.connected
+                  ? t('infrastructure.statusLabels.connected')
+                  : t('infrastructure.statusLabels.disconnected')
+                : t('infrastructure.statusLabels.disabled')}
             </span>
           </div>
 
@@ -705,8 +633,8 @@ export function Infrastructure() {
             }}
           >
             <div className="toggle-info">
-              <span>Enable Redis</span>
-              <small>Required for caching, session storage, and BullMQ queues</small>
+              <span>{t('infrastructure.redis.enable')}</span>
+              <small>{t('infrastructure.redis.enableDesc')}</small>
             </div>
             <label className="toggle-switch">
               <input
@@ -725,8 +653,8 @@ export function Infrastructure() {
             <>
               <div className="toggle-row" style={{ marginBottom: '1rem' }}>
                 <div className="toggle-info">
-                  <span>Use Built-in Redis Container</span>
-                  <small>OpenWA will manage a Redis container for you</small>
+                  <span>{t('infrastructure.redis.useBuiltIn')}</span>
+                  <small>{t('infrastructure.redis.builtInDesc')}</small>
                 </div>
                 <label className="toggle-switch">
                   <input
@@ -742,7 +670,7 @@ export function Infrastructure() {
                 <div className="config-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Host</label>
+                      <label>{t('common.host')}</label>
                       <input
                         type="text"
                         value={redisConfig.host}
@@ -750,7 +678,7 @@ export function Infrastructure() {
                       />
                     </div>
                     <div className="form-group small">
-                      <label>Port</label>
+                      <label>{t('common.port')}</label>
                       <input
                         type="text"
                         value={redisConfig.port}
@@ -758,26 +686,25 @@ export function Infrastructure() {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Password</label>
+                      <label>{t('common.password')}</label>
                       <input
                         type="password"
                         value={redisConfig.password}
                         onChange={e => updateRedisConfig('password', e.target.value)}
-                        placeholder="(optional)"
+                        placeholder={t('infrastructure.redis.passwordOptional')}
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* BullMQ Queue Toggle */}
               <div
                 className="toggle-row"
                 style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', marginTop: '0.5rem' }}
               >
                 <div className="toggle-info">
-                  <span>Enable BullMQ Queue System</span>
-                  <small>Use message queues for reliable message and webhook delivery</small>
+                  <span>{t('infrastructure.redis.queueTitle')}</span>
+                  <small>{t('infrastructure.redis.queueDesc')}</small>
                 </div>
                 <label className="toggle-switch">
                   <input type="checkbox" checked={queueEnabled} onChange={e => setQueueEnabled(e.target.checked)} />
@@ -787,39 +714,39 @@ export function Infrastructure() {
 
               {queueEnabled && (
                 <div className="queue-stats">
-                  <h3>Queue Statistics</h3>
+                  <h3>{t('infrastructure.redis.statsTitle')}</h3>
                   <div className="stats-row">
                     <div className="queue-stat-card">
-                      <h4>Message Queue</h4>
+                      <h4>{t('infrastructure.redis.messageQueue')}</h4>
                       <div className="stat-values">
                         <div className="stat-item pending">
                           <span className="value">{queueStats.messages.pending}</span>
-                          <span className="label">Pending</span>
+                          <span className="label">{t('infrastructure.redis.pending')}</span>
                         </div>
                         <div className="stat-item completed">
                           <span className="value">{queueStats.messages.completed.toLocaleString()}</span>
-                          <span className="label">Completed</span>
+                          <span className="label">{t('infrastructure.redis.completed')}</span>
                         </div>
                         <div className="stat-item failed">
                           <span className="value">{queueStats.messages.failed}</span>
-                          <span className="label">Failed</span>
+                          <span className="label">{t('infrastructure.redis.failed')}</span>
                         </div>
                       </div>
                     </div>
                     <div className="queue-stat-card">
-                      <h4>Webhook Queue</h4>
+                      <h4>{t('infrastructure.redis.webhookQueue')}</h4>
                       <div className="stat-values">
                         <div className="stat-item pending">
                           <span className="value">{queueStats.webhooks.pending}</span>
-                          <span className="label">Pending</span>
+                          <span className="label">{t('infrastructure.redis.pending')}</span>
                         </div>
                         <div className="stat-item completed">
                           <span className="value">{queueStats.webhooks.completed.toLocaleString()}</span>
-                          <span className="label">Completed</span>
+                          <span className="label">{t('infrastructure.redis.completed')}</span>
                         </div>
                         <div className="stat-item failed">
                           <span className="value">{queueStats.webhooks.failed}</span>
-                          <span className="label">Failed</span>
+                          <span className="label">{t('infrastructure.redis.failed')}</span>
                         </div>
                       </div>
                     </div>
@@ -827,14 +754,14 @@ export function Infrastructure() {
                   <div className="queue-actions">
                     <button className="btn-danger-outline">
                       <Trash2 size={16} />
-                      Clear Failed Jobs
+                      {t('infrastructure.redis.clearFailed')}
                     </button>
                     <button
                       className="btn-outline"
                       onClick={() => window.open('http://localhost:2785/api/admin/queues', '_blank')}
                     >
                       <ExternalLink size={16} />
-                      View Bull MQ Dashboard
+                      {t('infrastructure.redis.viewBullMq')}
                     </button>
                   </div>
                 </div>
@@ -853,21 +780,22 @@ export function Infrastructure() {
               }}
             >
               <Server size={32} style={{ color: '#94A3B8', marginBottom: '1rem', opacity: 0.5 }} />
-              <p style={{ margin: 0, color: '#475569', fontSize: '0.9375rem', fontWeight: 500 }}>Redis is Disabled</p>
+              <p style={{ margin: 0, color: '#475569', fontSize: '0.9375rem', fontWeight: 500 }}>
+                {t('infrastructure.redis.disabledTitle')}
+              </p>
               <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.8125rem', lineHeight: 1.5 }}>
-                Enable Redis for caching, session storage, <br />
-                and BullMQ message queues.
+                {t('infrastructure.redis.disabledDesc')}
               </p>
             </div>
           )}
         </section>
 
-        {/* Storage Section */}
+        {/* Storage */}
         <section className="infra-card">
           <div className="card-header">
             <div className="header-left">
               <HardDrive size={20} />
-              <h2>Storage Configuration</h2>
+              <h2>{t('infrastructure.storage.title')}</h2>
             </div>
           </div>
 
@@ -880,8 +808,8 @@ export function Infrastructure() {
                 onChange={() => updateStorageConfig('type', 'local')}
               />
               <img src={folderIcon} alt="" className="watermark-icon" />
-              <span>Local Filesystem</span>
-              <small>Store media files locally</small>
+              <span>{t('infrastructure.storage.local')}</span>
+              <small>{t('infrastructure.storage.localDesc')}</small>
             </label>
             <label className={`radio-option ${storageConfig.type === 's3' ? 'selected' : ''}`}>
               <input
@@ -891,15 +819,15 @@ export function Infrastructure() {
                 onChange={() => updateStorageConfig('type', 's3')}
               />
               <img src={s3Icon} alt="" className="watermark-icon" />
-              <span>Amazon S3</span>
-              <small>Cloud storage (S3 compatible)</small>
+              <span>{t('infrastructure.storage.s3')}</span>
+              <small>{t('infrastructure.storage.s3Desc')}</small>
             </label>
           </div>
 
           <div className="config-form">
             {storageConfig.type === 'local' && (
               <div className="form-group">
-                <label>Storage Path</label>
+                <label>{t('infrastructure.storage.storagePath')}</label>
                 <input
                   type="text"
                   value={storageConfig.localPath}
@@ -912,8 +840,8 @@ export function Infrastructure() {
               <>
                 <div className="toggle-row" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
                   <div className="toggle-info">
-                    <span>Use Built-in MinIO Container</span>
-                    <small>OpenWA will manage a MinIO (S3-compatible) container for you</small>
+                    <span>{t('infrastructure.storage.useBuiltIn')}</span>
+                    <small>{t('infrastructure.storage.builtInDesc')}</small>
                   </div>
                   <label className="toggle-switch">
                     <input
@@ -929,7 +857,7 @@ export function Infrastructure() {
                   <>
                     <div className="form-row">
                       <div className="form-group">
-                        <label>Bucket Name</label>
+                        <label>{t('infrastructure.storage.bucket')}</label>
                         <input
                           type="text"
                           value={storageConfig.s3Bucket}
@@ -937,7 +865,7 @@ export function Infrastructure() {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Region</label>
+                        <label>{t('infrastructure.storage.region')}</label>
                         <input
                           type="text"
                           value={storageConfig.s3Region}
@@ -947,7 +875,7 @@ export function Infrastructure() {
                     </div>
                     <div className="form-row">
                       <div className="form-group">
-                        <label>Access Key</label>
+                        <label>{t('infrastructure.storage.accessKey')}</label>
                         <input
                           type="text"
                           value={storageConfig.s3AccessKey}
@@ -955,7 +883,7 @@ export function Infrastructure() {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Secret Key</label>
+                        <label>{t('infrastructure.storage.secretKey')}</label>
                         <input
                           type="password"
                           value={storageConfig.s3SecretKey}
@@ -964,12 +892,12 @@ export function Infrastructure() {
                       </div>
                     </div>
                     <div className="form-group">
-                      <label>Custom Endpoint (optional)</label>
+                      <label>{t('infrastructure.storage.endpoint')}</label>
                       <input
                         type="text"
                         value={storageConfig.s3Endpoint}
                         onChange={e => updateStorageConfig('s3Endpoint', e.target.value)}
-                        placeholder="For MinIO or other S3-compatible services"
+                        placeholder={t('infrastructure.storage.endpointHint')}
                       />
                     </div>
                   </>
@@ -980,32 +908,30 @@ export function Infrastructure() {
         </section>
       </div>
 
-      {/* Restart Modal */}
       {showRestartModal && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: '500px', textAlign: 'center' }}>
             <div className="modal-header" style={{ justifyContent: 'center', borderBottom: 'none' }}>
               <h2>
-                {restartStatus === 'idle' && '⚙️ Configuration Saved'}
-                {restartStatus === 'restarting' && '🔄 Restarting Server...'}
-                {restartStatus === 'waiting' && '⏳ Please Wait...'}
-                {restartStatus === 'success' && '✅ Server Ready'}
-                {restartStatus === 'error' && '❌ Restart Failed'}
+                {restartStatus === 'idle' && t('infrastructure.restart.idleTitle')}
+                {restartStatus === 'restarting' && t('infrastructure.restart.restartingTitle')}
+                {restartStatus === 'waiting' && t('infrastructure.restart.waitingTitle')}
+                {restartStatus === 'success' && t('infrastructure.restart.successTitle')}
+                {restartStatus === 'error' && t('infrastructure.restart.errorTitle')}
               </h2>
             </div>
             <div className="modal-body" style={{ padding: '2rem' }}>
               {restartStatus === 'idle' && (
                 <>
                   <p style={{ fontSize: '1rem', color: '#475569', marginBottom: '1.5rem' }}>
-                    Configuration has been saved to <code>.env.generated</code>.<br />A server restart is required to
-                    apply the changes.
+                    <Trans i18nKey="infrastructure.restart.idleDesc" components={{ code: <code />, br: <br /> }} />
                   </p>
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <button className="btn-secondary" onClick={() => setShowRestartModal(false)}>
-                      Restart Later
+                      {t('infrastructure.restart.later')}
                     </button>
                     <button className="btn-primary" onClick={handleRestart}>
-                      Restart Now
+                      {t('infrastructure.restart.now')}
                     </button>
                   </div>
                 </>
@@ -1016,7 +942,9 @@ export function Infrastructure() {
                   <div style={{ marginBottom: '1.5rem' }}>
                     <Loader2 className="animate-spin" size={48} style={{ color: '#22C55E', marginBottom: '1rem' }} />
                     <p style={{ fontSize: '1.125rem', color: '#1E293B', fontWeight: 500 }}>
-                      {restartCountdown > 0 ? `Server restarting... ${restartCountdown}s` : 'Checking server status...'}
+                      {restartCountdown > 0
+                        ? t('infrastructure.restart.restartingMsg', { count: restartCountdown })
+                        : t('infrastructure.restart.checking')}
                     </p>
                   </div>
                   <div
@@ -1038,7 +966,7 @@ export function Infrastructure() {
                     />
                   </div>
                   <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#64748B' }}>
-                    Please do not close this window
+                    {t('infrastructure.restart.dontClose')}
                   </p>
                 </>
               )}
@@ -1047,7 +975,7 @@ export function Infrastructure() {
                 <>
                   <CheckCircle size={48} style={{ color: '#22C55E', marginBottom: '1rem' }} />
                   <p style={{ fontSize: '1rem', color: '#475569' }}>
-                    Server is back online! The page will reload automatically.
+                    {t('infrastructure.restart.successMsg')}
                   </p>
                 </>
               )}
@@ -1055,12 +983,10 @@ export function Infrastructure() {
               {restartStatus === 'error' && (
                 <>
                   <p style={{ fontSize: '1rem', color: '#DC2626', marginBottom: '1rem' }}>
-                    Server did not respond after 30 seconds.
-                    <br />
-                    Please check the Docker logs and restart manually.
+                    {t('infrastructure.restart.errorMsg')}
                   </p>
                   <button className="btn-primary" onClick={() => window.location.reload()}>
-                    Reload Page
+                    {t('infrastructure.restart.reload')}
                   </button>
                 </>
               )}
@@ -1072,7 +998,7 @@ export function Infrastructure() {
       <footer className="page-footer">
         <button className="btn-primary large" onClick={handleSaveConfig} disabled={saving}>
           {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-          {saving ? 'Saving...' : 'Save Configuration'}
+          {saving ? t('infrastructure.saving') : t('infrastructure.saveConfig')}
         </button>
       </footer>
     </div>

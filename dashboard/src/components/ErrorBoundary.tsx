@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -37,9 +38,9 @@ export class ErrorBoundary extends Component<Props, State> {
           fontFamily: 'system-ui, sans-serif', color: '#374151',
         }}>
           <AlertCircle size={48} style={{ color: '#DC2626', marginBottom: '1rem' }} />
-          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Something went wrong</h1>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{i18n.t('errorBoundary.title')}</h1>
           <p style={{ color: '#6B7280', marginBottom: '1.5rem', textAlign: 'center' }}>
-            The dashboard encountered an unexpected error.
+            {i18n.t('errorBoundary.description')}
           </p>
           <button
             onClick={this.handleReload}
@@ -51,7 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
             }}
           >
             <RefreshCw size={18} />
-            Reload Dashboard
+            {i18n.t('errorBoundary.reload')}
           </button>
         </div>
       );

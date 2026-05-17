@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   useReactTable,
   getCoreRowModel,
@@ -13,29 +14,23 @@ import { useApiKeysQuery, useCreateApiKeyMutation, useDeleteApiKeyMutation, useR
 import { PageHeader } from '../components/PageHeader';
 import './ApiKeys.css';
 
-const permissionsReference = [
-  { name: 'admin', description: 'Full access to all resources' },
-  { name: 'operator', description: 'Session & message management' },
-  { name: 'viewer', description: 'Read-only access' },
-];
+const roleNames = ['admin', 'operator', 'viewer'] as const;
 
-// Hook to track window size
 function useWindowSize() {
   const [width, setWidth] = useState(window.innerWidth);
-
   useEffect(() => {
     const handleResize = () => setWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
   return width;
 }
 
 const columnHelper = createColumnHelper<ApiKey>();
 
 export function ApiKeys() {
-  useDocumentTitle('API Keys');
+  const { t } = useTranslation();
+  useDocumentTitle(t('apiKeys.title'));
   const { data: apiKeys = [], isLoading: loading } = useApiKeysQuery();
   const createMutation = useCreateApiKeyMutation();
   const deleteMutation = useDeleteApiKeyMutation();
@@ -52,15 +47,10 @@ export function ApiKeys() {
   const windowWidth = useWindowSize();
   const isMobile = windowWidth < 768;
   const isSmall = windowWidth < 640;
-
-  // Column visibility based on screen size
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   useEffect(() => {
-    setColumnVisibility({
-      key: !isSmall, // Hide key column on very small screens
-      lastUsed: !isMobile, // Hide last used on mobile
-    });
+    setColumnVisibility({ key: !isSmall, lastUsed: !isMobile });
   }, [isMobile, isSmall]);
 
   const handleCreate = async () => {
@@ -92,11 +82,8 @@ export function ApiKeys() {
 
   const confirmAndExecute = () => {
     if (!confirmAction) return;
-    if (confirmAction.type === 'delete') {
-      handleDelete(confirmAction.id);
-    } else {
-      handleRevoke(confirmAction.id);
-    }
+    if (confirmAction.type === 'delete') handleDelete(confirmAction.id);
+    else handleRevoke(confirmAction.id);
     setConfirmAction(null);
   };
 
@@ -115,16 +102,15 @@ export function ApiKeys() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  // Define columns using TanStack Table
   const columns = useMemo(
     () => [
       columnHelper.accessor('name', {
-        header: 'Name',
+        header: () => t('apiKeys.columns.name'),
         cell: info => <span className="name-cell">{info.getValue()}</span>,
       }),
       columnHelper.accessor('keyPrefix', {
         id: 'key',
-        header: 'Key',
+        header: () => t('apiKeys.columns.key'),
         cell: info => {
           const apiKey = info.row.original;
           return (
@@ -138,41 +124,45 @@ export function ApiKeys() {
         },
       }),
       columnHelper.accessor('role', {
-        header: 'Role',
+        header: () => t('apiKeys.columns.role'),
         cell: info => <span className="permission-badge">{info.getValue()}</span>,
       }),
       columnHelper.accessor('isActive', {
-        header: 'Status',
+        header: () => t('apiKeys.columns.status'),
         cell: info => (
           <span className={`status-badge ${info.getValue() ? 'active' : 'inactive'}`}>
-            {info.getValue() ? 'Active' : 'Revoked'}
+            {info.getValue() ? t('apiKeys.statuses.active') : t('apiKeys.statuses.revoked')}
           </span>
         ),
       }),
       columnHelper.accessor('lastUsedAt', {
         id: 'lastUsed',
-        header: 'Last Used',
+        header: () => t('apiKeys.columns.lastUsed'),
         cell: info => (
           <span className="last-used">
-            {info.getValue() ? new Date(info.getValue()!).toLocaleDateString() : 'Never'}
+            {info.getValue() ? new Date(info.getValue()!).toLocaleDateString() : t('common.never')}
           </span>
         ),
       }),
       columnHelper.display({
         id: 'actions',
-        header: 'Actions',
+        header: () => t('apiKeys.columns.actions'),
         cell: info => {
           const apiKey = info.row.original;
           return (
             <span className="actions-cell">
-              <button className="icon-btn" onClick={() => copyToClipboard(apiKey.keyPrefix, apiKey.id)} title="Copy">
+              <button
+                className="icon-btn"
+                onClick={() => copyToClipboard(apiKey.keyPrefix, apiKey.id)}
+                title={t('apiKeys.actions.copy')}
+              >
                 {copied === apiKey.id ? <Check size={16} /> : <Copy size={16} />}
               </button>
               {apiKey.isActive && (
                 <button
                   className="icon-btn"
                   onClick={() => setConfirmAction({ type: 'revoke', id: apiKey.id, name: apiKey.name })}
-                  title="Revoke"
+                  title={t('apiKeys.actions.revoke')}
                 >
                   <RefreshCw size={16} />
                 </button>
@@ -180,7 +170,7 @@ export function ApiKeys() {
               <button
                 className="icon-btn danger"
                 onClick={() => setConfirmAction({ type: 'delete', id: apiKey.id, name: apiKey.name })}
-                title="Delete"
+                title={t('apiKeys.actions.delete')}
               >
                 <Trash2 size={16} />
               </button>
@@ -189,15 +179,13 @@ export function ApiKeys() {
         },
       }),
     ],
-    [visibleKeys, copied],
+    [visibleKeys, copied, t],
   );
 
   const table = useReactTable({
     data: apiKeys,
     columns,
-    state: {
-      columnVisibility,
-    },
+    state: { columnVisibility },
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -216,12 +204,12 @@ export function ApiKeys() {
   return (
     <div className="api-keys-page">
       <PageHeader
-        title="API Keys"
-        subtitle="Manage API keys for authentication and access control"
+        title={t('apiKeys.title')}
+        subtitle={t('apiKeys.subtitle')}
         actions={
           <button className="btn-primary" onClick={() => setShowModal(true)}>
             <Plus size={18} />
-            Create API Key
+            {t('apiKeys.createBtn')}
           </button>
         }
       />
@@ -236,7 +224,7 @@ export function ApiKeys() {
         >
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{createdKey ? 'API Key Created' : 'Create API Key'}</h2>
+              <h2>{createdKey ? t('apiKeys.createdTitle') : t('apiKeys.modalTitle')}</h2>
               <button
                 className="btn-icon"
                 onClick={() => {
@@ -250,9 +238,7 @@ export function ApiKeys() {
             <div className="modal-body">
               {createdKey ? (
                 <div>
-                  <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>
-                    Copy this key now. You won't be able to see it again.
-                  </p>
+                  <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>{t('apiKeys.createdHint')}</p>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <code
                       style={{
@@ -272,18 +258,20 @@ export function ApiKeys() {
                 </div>
               ) : (
                 <>
-                  <label>Name</label>
+                  <label>{t('common.name')}</label>
                   <input
                     type="text"
-                    placeholder="e.g., Production Key"
+                    placeholder={t('apiKeys.namePlaceholder')}
                     value={newKey.name}
                     onChange={e => setNewKey({ ...newKey, name: e.target.value })}
                   />
-                  <label>Role</label>
+                  <label>{t('common.role')}</label>
                   <select value={newKey.role} onChange={e => setNewKey({ ...newKey, role: e.target.value })}>
-                    <option value="admin">Admin</option>
-                    <option value="operator">Operator</option>
-                    <option value="viewer">Viewer</option>
+                    {roleNames.map(r => (
+                      <option key={r} value={r}>
+                        {t(`apiKeys.roles.${r}`)}
+                      </option>
+                    ))}
                   </select>
                 </>
               )}
@@ -291,10 +279,10 @@ export function ApiKeys() {
             {!createdKey && (
               <div className="modal-footer">
                 <button className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button className="btn-primary" onClick={handleCreate}>
-                  Create
+                  {t('common.create')}
                 </button>
               </div>
             )}
@@ -307,8 +295,8 @@ export function ApiKeys() {
           {apiKeys.length === 0 ? (
             <div className="empty-table-state">
               <KeyRound size={48} strokeWidth={1} />
-              <h3>No API keys created</h3>
-              <p>Create an API key to authenticate your requests</p>
+              <h3>{t('apiKeys.empty.title')}</h3>
+              <p>{t('apiKeys.empty.description')}</p>
             </div>
           ) : (
             <table className="keys-table">
@@ -337,24 +325,27 @@ export function ApiKeys() {
         </div>
 
         <div className="permissions-reference">
-          <h3>Roles Reference</h3>
+          <h3>{t('apiKeys.rolesTitle')}</h3>
           <div className="permissions-list">
-            {permissionsReference.map(perm => (
-              <div key={perm.name} className="perm-item">
-                <code>{perm.name}</code>
-                <span>{perm.description}</span>
+            {roleNames.map(r => (
+              <div key={r} className="perm-item">
+                <code>{r}</code>
+                <span>{t(`apiKeys.roleDescriptions.${r}`)}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Confirmation Modal */}
       {confirmAction && (
         <div className="modal-overlay" onClick={() => setConfirmAction(null)}>
           <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{confirmAction.type === 'delete' ? 'Delete API Key' : 'Revoke API Key'}</h2>
+              <h2>
+                {confirmAction.type === 'delete'
+                  ? t('apiKeys.confirm.deleteTitle')
+                  : t('apiKeys.confirm.revokeTitle')}
+              </h2>
               <button className="btn-icon" onClick={() => setConfirmAction(null)}>
                 <X size={20} />
               </button>
@@ -364,24 +355,25 @@ export function ApiKeys() {
                 <AlertTriangle size={48} className="confirm-warning-icon" />
               </div>
               <p className="confirm-message">
-                {confirmAction.type === 'delete' ? (
-                  <>
-                    Are you sure you want to permanently delete <strong>{confirmAction.name}</strong>? This action
-                    cannot be undone.
-                  </>
-                ) : (
-                  <>
-                    Are you sure you want to revoke <strong>{confirmAction.name}</strong>? It will no longer work.
-                  </>
-                )}
+                <Trans
+                  i18nKey={
+                    confirmAction.type === 'delete'
+                      ? 'apiKeys.confirm.deleteMessage'
+                      : 'apiKeys.confirm.revokeMessage'
+                  }
+                  values={{ name: confirmAction.name }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setConfirmAction(null)}>
-                Cancel
+                {t('common.cancel')}
               </button>
-              <button className={`btn-danger`} onClick={confirmAndExecute}>
-                {confirmAction.type === 'delete' ? 'Delete' : 'Revoke'}
+              <button className="btn-danger" onClick={confirmAndExecute}>
+                {confirmAction.type === 'delete'
+                  ? t('apiKeys.confirm.delete')
+                  : t('apiKeys.confirm.revoke')}
               </button>
             </div>
           </div>

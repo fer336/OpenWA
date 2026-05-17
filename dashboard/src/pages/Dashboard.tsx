@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Send, Webhook, Activity, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useSessionsQuery, useSessionStatsQuery, useWebhooksQuery, useStopSessionMutation } from '../hooks/queries';
@@ -6,14 +7,19 @@ import { PageHeader } from '../components/PageHeader';
 import './Dashboard.css';
 
 export function Dashboard() {
-  useDocumentTitle('Dashboard');
+  const { t } = useTranslation();
+  useDocumentTitle(t('dashboard.title'));
   const navigate = useNavigate();
   const { data: sessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
   const { data: stats } = useSessionStatsQuery();
   const { data: webhooks = [] } = useWebhooksQuery();
   const stopMutation = useStopSessionMutation();
   const loading = loadingSessions;
-  const error = sessionsError instanceof Error ? sessionsError.message : sessionsError ? 'Failed to load data' : null;
+  const error = sessionsError instanceof Error
+    ? sessionsError.message
+    : sessionsError
+      ? t('dashboard.loadError')
+      : null;
   const webhookCount = webhooks.length;
 
   const handleDisconnect = async (id: string) => {
@@ -26,38 +32,27 @@ export function Dashboard() {
 
   const statsCards = [
     {
-      label: 'Active Sessions',
+      label: t('dashboard.stats.activeSessions'),
       value: stats?.active ?? 0,
       icon: MessageSquare,
       trend: `+${stats?.ready ?? 0}`,
       trendUp: true,
     },
-    { label: 'Messages Today', value: '—', icon: Send, trend: '0', trendUp: null },
-    { label: 'Webhooks Configured', value: webhookCount, icon: Webhook, trend: '0', trendUp: null },
-    { label: 'API Calls (24h)', value: '—', icon: Activity, trend: '0', trendUp: null },
+    { label: t('dashboard.stats.messagesToday'), value: '—', icon: Send, trend: '0', trendUp: null },
+    { label: t('dashboard.stats.webhooksConfigured'), value: webhookCount, icon: Webhook, trend: '0', trendUp: null },
+    { label: t('dashboard.stats.apiCalls'), value: '—', icon: Activity, trend: '0', trendUp: null },
   ];
 
   const formatLastActive = (date?: string) => {
-    if (!date) return 'Never';
+    if (!date) return t('common.never');
     const diff = Date.now() - new Date(date).getTime();
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+    if (diff < 60000) return t('common.justNow');
+    if (diff < 3600000) return t('common.minAgo', { count: Math.floor(diff / 60000) });
+    if (diff < 86400000) return t('common.hoursAgo', { count: Math.floor(diff / 3600000) });
     return new Date(date).toLocaleDateString();
   };
 
-  const formatStatus = (status: string) => {
-    const statusMap: Record<string, string> = {
-      created: 'New',
-      idle: 'Idle',
-      initializing: 'Starting...',
-      connecting: 'Connecting...',
-      qr_ready: 'Scan QR',
-      ready: 'Connected',
-      disconnected: 'Disconnected',
-    };
-    return statusMap[status] || status;
-  };
+  const formatStatus = (status: string) => t(`sessionStatus.${status}`, { defaultValue: status });
 
   if (loading) {
     return (
@@ -74,7 +69,7 @@ export function Dashboard() {
     return (
       <div className="dashboard" style={{ padding: '2rem' }}>
         <div style={{ background: '#FEE2E2', padding: '1rem', borderRadius: '8px', color: '#DC2626' }}>
-          Error: {error}
+          {t('dashboard.errorPrefix', { message: error })}
         </div>
       </div>
     );
@@ -83,11 +78,11 @@ export function Dashboard() {
   return (
     <div className="dashboard">
       <PageHeader
-        title="Dashboard"
-        subtitle="Overview of your WhatsApp sessions and activity"
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
         badge={
           <span className={`status-badge ${stats && stats.ready > 0 ? 'connected' : 'disconnected'}`}>
-            {stats && stats.ready > 0 ? 'Connected' : 'Disconnected'}
+            {stats && stats.ready > 0 ? t('common.connected') : t('common.disconnected')}
           </span>
         }
       />
@@ -113,23 +108,23 @@ export function Dashboard() {
 
       <section className="sessions-section">
         <div className="section-header">
-          <h2>Sessions Overview</h2>
+          <h2>{t('dashboard.sessionsOverview')}</h2>
           <span className="section-subtitle">
-            Showing {sessions.length} of {stats?.total ?? 0} sessions
+            {t('dashboard.showingSessions', { shown: sessions.length, total: stats?.total ?? 0 })}
           </span>
         </div>
 
         <div className="sessions-table">
           <div className="table-header">
-            <span>Session ID</span>
-            <span>Phone Number</span>
-            <span>Status</span>
-            <span>Last Active</span>
-            <span>Actions</span>
+            <span>{t('dashboard.columns.sessionId')}</span>
+            <span>{t('dashboard.columns.phone')}</span>
+            <span>{t('dashboard.columns.status')}</span>
+            <span>{t('dashboard.columns.lastActive')}</span>
+            <span>{t('dashboard.columns.actions')}</span>
           </div>
           {sessions.length === 0 ? (
             <div className="table-row" style={{ justifyContent: 'center', color: 'var(--text-muted)' }}>
-              No sessions found. Create one to get started.
+              {t('dashboard.noSessions')}
             </div>
           ) : (
             sessions.map(session => (
@@ -145,11 +140,11 @@ export function Dashboard() {
                 <span className="last-active">{formatLastActive(session.lastActive)}</span>
                 <div className="actions">
                   <button className="btn-sm" onClick={() => navigate('/sessions')}>
-                    View
+                    {t('dashboard.view')}
                   </button>
                   {['ready', 'initializing', 'connecting', 'qr_ready'].includes(session.status) && (
                     <button className="btn-sm danger" onClick={() => handleDisconnect(session.id)}>
-                      Disconnect
+                      {t('dashboard.disconnect')}
                     </button>
                   )}
                 </div>

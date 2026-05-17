@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Puzzle,
@@ -48,7 +49,8 @@ interface EngineConfig {
 }
 
 export default function Plugins() {
-  useDocumentTitle('Plugins');
+  const { t } = useTranslation();
+  useDocumentTitle(t('plugins.title'));
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: plugins = [], isLoading: loadingPlugins, error: queryError } = usePluginsQuery();
@@ -60,7 +62,6 @@ export default function Plugins() {
   const error = queryError instanceof Error ? queryError.message : null;
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Config modal state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configPlugin, setConfigPlugin] = useState<Plugin | null>(null);
   const [engineConfig, setEngineConfig] = useState<EngineConfig>({
@@ -87,7 +88,7 @@ export default function Plugins() {
       }
       refetchAll();
     } catch (err) {
-      toast.error('Plugin Error', err instanceof Error ? err.message : 'Failed to toggle plugin');
+      toast.error(t('plugins.toasts.errorTitle'), err instanceof Error ? err.message : t('plugins.toasts.errorDefault'));
     } finally {
       setActionLoading(null);
     }
@@ -98,12 +99,12 @@ export default function Plugins() {
     try {
       const result = await pluginsApi.healthCheck(pluginId);
       if (result.healthy) {
-        toast.success('Health Check Passed', result.message);
+        toast.success(t('plugins.toasts.healthOk'), result.message);
       } else {
-        toast.warning('Health Check Failed', result.message);
+        toast.warning(t('plugins.toasts.healthFail'), result.message);
       }
     } catch (err) {
-      toast.error('Health Check Error', err instanceof Error ? err.message : 'Unknown error');
+      toast.error(t('plugins.toasts.healthError'), err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setActionLoading(null);
     }
@@ -117,11 +118,10 @@ export default function Plugins() {
   const handleSaveConfig = async () => {
     setSavingConfig(true);
     try {
-      // For now, show a success message - actual implementation would call API
-      toast.success('Configuration Saved', 'Server restart required to apply changes.');
+      toast.success(t('plugins.toasts.savedTitle'), t('plugins.toasts.savedDesc'));
       setShowConfigModal(false);
     } catch (err) {
-      toast.error('Save Failed', err instanceof Error ? err.message : 'Unknown error');
+      toast.error(t('plugins.toasts.saveFailed'), err instanceof Error ? err.message : t('common.unknownError'));
     } finally {
       setSavingConfig(false);
     }
@@ -143,17 +143,16 @@ export default function Plugins() {
   return (
     <div className="plugins-page">
       <PageHeader
-        title="Plugins"
-        subtitle="Manage engines, storage backends, and extensions"
+        title={t('plugins.title')}
+        subtitle={t('plugins.subtitle')}
         actions={
           <button className="btn-secondary" onClick={refetchAll}>
             <RefreshCw size={16} />
-            Refresh
+            {t('plugins.refresh')}
           </button>
         }
       />
 
-      {/* Error Banner */}
       {error && (
         <div className="error-banner">
           <AlertCircle size={20} />
@@ -161,7 +160,6 @@ export default function Plugins() {
         </div>
       )}
 
-      {/* Current Engine Card */}
       <div className="engine-card">
         <div className="engine-header">
           <div className="engine-info">
@@ -169,17 +167,16 @@ export default function Plugins() {
               <Cpu size={24} />
             </div>
             <div>
-              <h3 className="engine-title">Active WhatsApp Engine</h3>
+              <h3 className="engine-title">{t('plugins.engineCard')}</h3>
               <span className="engine-name">{currentEngine}</span>
             </div>
           </div>
-          <span className="status-badge connected">Running</span>
+          <span className="status-badge connected">{t('plugins.running')}</span>
         </div>
 
-        {/* Engine Features */}
         {activeEngine && activeEngine.features.length > 0 && (
           <div className="engine-features">
-            <p className="features-label">Supported Features:</p>
+            <p className="features-label">{t('plugins.supportedFeatures')}</p>
             <div className="features-list">
               {activeEngine.features.slice(0, 8).map(feature => (
                 <span key={feature} className="feature-tag">
@@ -187,14 +184,13 @@ export default function Plugins() {
                 </span>
               ))}
               {activeEngine.features.length > 8 && (
-                <span className="feature-more">+{activeEngine.features.length - 8} more</span>
+                <span className="feature-more">{t('plugins.more', { count: activeEngine.features.length - 8 })}</span>
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Plugins Grid */}
       <div className="plugins-grid">
         {plugins.map(plugin => {
           const TypeIcon = pluginTypeIcons[plugin.type as PluginType] || Puzzle;
@@ -202,7 +198,6 @@ export default function Plugins() {
 
           return (
             <div key={plugin.id} className="plugin-card">
-              {/* Card Header */}
               <div className={`plugin-card-header type-${plugin.type}`}>
                 <div className="plugin-info">
                   <div className="plugin-icon-wrapper">
@@ -213,15 +208,12 @@ export default function Plugins() {
                     <span className="plugin-version">v{plugin.version}</span>
                   </div>
                 </div>
-                {plugin.builtIn && <span className="plugin-builtin-badge">Built-in</span>}
+                {plugin.builtIn && <span className="plugin-builtin-badge">{t('plugins.builtIn')}</span>}
               </div>
 
-              {/* Card Body */}
               <div className="plugin-card-body">
-                {/* Description */}
-                <p className="plugin-description">{plugin.description || 'No description available'}</p>
+                <p className="plugin-description">{plugin.description || t('plugins.noDescription')}</p>
 
-                {/* Status */}
                 <div className="plugin-status-row">
                   <div className="plugin-status">
                     <span className={`status-dot ${plugin.status}`} />
@@ -230,14 +222,12 @@ export default function Plugins() {
                   <span className="plugin-type-label">{plugin.type}</span>
                 </div>
 
-                {/* Error Display */}
                 {plugin.error && (
                   <div className="plugin-error">
                     <p className="plugin-error-text">{plugin.error}</p>
                   </div>
                 )}
 
-                {/* Provides */}
                 {plugin.provides && plugin.provides.length > 0 && (
                   <div className="plugin-provides">
                     {plugin.provides.map(item => (
@@ -248,9 +238,7 @@ export default function Plugins() {
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="plugin-actions">
-                  {/* Engine plugins: show Required if only engine, otherwise radio selection style */}
                   {plugin.type === 'engine' ? (
                     (() => {
                       const enginePlugins = plugins.filter(p => p.type === 'engine');
@@ -258,23 +246,20 @@ export default function Plugins() {
                       const isActive = plugin.status === 'enabled';
 
                       if (isOnlyEngine && isActive) {
-                        // Only engine available - cannot disable
                         return (
                           <span className="btn-required">
                             <CheckCircle size={16} />
-                            Required
+                            {t('plugins.required')}
                           </span>
                         );
                       } else if (isActive) {
-                        // Multiple engines, this one is active
                         return (
                           <span className="btn-active">
                             <CheckCircle size={16} />
-                            Active
+                            {t('plugins.active')}
                           </span>
                         );
                       } else {
-                        // Not active, can switch to this engine
                         return (
                           <button
                             onClick={() => handleToggle(plugin)}
@@ -286,7 +271,7 @@ export default function Plugins() {
                             ) : (
                               <>
                                 <Power size={16} />
-                                Activate
+                                {t('plugins.activate')}
                               </>
                             )}
                           </button>
@@ -294,7 +279,6 @@ export default function Plugins() {
                       }
                     })()
                   ) : (
-                    // Regular plugins: normal enable/disable
                     <button
                       onClick={() => handleToggle(plugin)}
                       disabled={isLoading}
@@ -305,12 +289,12 @@ export default function Plugins() {
                       ) : plugin.status === 'enabled' ? (
                         <>
                           <PowerOff size={16} />
-                          Disable
+                          {t('plugins.disable')}
                         </>
                       ) : (
                         <>
                           <Power size={16} />
-                          Enable
+                          {t('plugins.enable')}
                         </>
                       )}
                     </button>
@@ -320,12 +304,12 @@ export default function Plugins() {
                     onClick={() => handleHealthCheck(plugin.id)}
                     disabled={isLoading}
                     className="btn-action"
-                    title="Health Check"
+                    title={t('plugins.healthCheck')}
                   >
                     <CheckCircle size={16} />
                   </button>
 
-                  <button className="btn-action" title="Configure" onClick={() => handleOpenConfig(plugin)}>
+                  <button className="btn-action" title={t('plugins.configure')} onClick={() => handleOpenConfig(plugin)}>
                     <Settings size={16} />
                   </button>
                 </div>
@@ -335,21 +319,19 @@ export default function Plugins() {
         })}
       </div>
 
-      {/* Empty State */}
       {plugins.length === 0 && !loading && (
         <div className="empty-state">
           <Puzzle size={64} />
-          <h3>No Plugins Found</h3>
-          <p>Install plugins to extend OpenWA functionality</p>
+          <h3>{t('plugins.empty.title')}</h3>
+          <p>{t('plugins.empty.description')}</p>
         </div>
       )}
 
-      {/* Config Modal */}
       {showConfigModal && configPlugin && (
         <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>
           <div className="modal config-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Configure {configPlugin.name}</h2>
+              <h2>{t('plugins.config.title', { name: configPlugin.name })}</h2>
               <button className="btn-icon" onClick={() => setShowConfigModal(false)}>
                 <X size={20} />
               </button>
@@ -360,12 +342,12 @@ export default function Plugins() {
                 <>
                   <div className="config-info-banner">
                     <AlertCircle size={16} />
-                    <span>Changes require server restart to take effect</span>
+                    <span>{t('plugins.config.restartNotice')}</span>
                   </div>
 
                   <div className="config-form">
                     <div className="form-group">
-                      <label>Engine Type</label>
+                      <label>{t('plugins.config.engineType')}</label>
                       <select
                         value={engineConfig.type}
                         onChange={e => setEngineConfig({ ...engineConfig, type: e.target.value })}
@@ -376,8 +358,8 @@ export default function Plugins() {
 
                     <div className="form-group toggle-group">
                       <div className="toggle-info">
-                        <label>Headless Mode</label>
-                        <small>Run browser without visible UI (recommended for production)</small>
+                        <label>{t('plugins.config.headless')}</label>
+                        <small>{t('plugins.config.headlessDesc')}</small>
                       </div>
                       <label className="toggle-switch">
                         <input
@@ -390,7 +372,7 @@ export default function Plugins() {
                     </div>
 
                     <div className="form-group">
-                      <label>Session Data Path</label>
+                      <label>{t('plugins.config.sessionDataPath')}</label>
                       <input
                         type="text"
                         value={engineConfig.sessionDataPath}
@@ -399,7 +381,7 @@ export default function Plugins() {
                     </div>
 
                     <div className="form-group">
-                      <label>Browser Arguments</label>
+                      <label>{t('plugins.config.browserArgs')}</label>
                       <input
                         type="text"
                         value={engineConfig.browserArgs}
@@ -412,18 +394,18 @@ export default function Plugins() {
               ) : (
                 <div className="no-config">
                   <Settings size={48} style={{ opacity: 0.3 }} />
-                  <p>No configuration options available for this plugin</p>
+                  <p>{t('plugins.config.noOptions')}</p>
                 </div>
               )}
             </div>
 
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowConfigModal(false)}>
-                Cancel
+                {t('common.cancel')}
               </button>
               {configPlugin.type === 'engine' && (
                 <button className="btn-primary" onClick={handleSaveConfig} disabled={savingConfig}>
-                  {savingConfig ? <Loader2 size={16} className="animate-spin" /> : 'Save Configuration'}
+                  {savingConfig ? <Loader2 size={16} className="animate-spin" /> : t('plugins.config.save')}
                 </button>
               )}
             </div>

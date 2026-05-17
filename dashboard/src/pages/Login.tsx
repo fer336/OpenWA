@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Github } from 'lucide-react';
 import './Login.css';
 
@@ -7,6 +8,7 @@ interface LoginProps {
 }
 
 export function Login({ onLogin }: LoginProps) {
+  const { t } = useTranslation();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -15,14 +17,13 @@ export function Login({ onLogin }: LoginProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) {
-      setError('API key is required');
+      setError(t('login.apiKeyRequired'));
       return;
     }
     setIsLoading(true);
     setError('');
 
     try {
-      // Validate API key with backend
       const response = await fetch('/api/auth/validate', {
         method: 'POST',
         headers: {
@@ -35,10 +36,10 @@ export function Login({ onLogin }: LoginProps) {
         onLogin(apiKey);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setError(errorData.message || 'Invalid API key');
+        setError(errorData.message || t('login.invalidKey'));
       }
     } catch {
-      setError('Unable to connect to server. Please try again.');
+      setError(t('login.connectionError'));
     } finally {
       setIsLoading(false);
     }
@@ -50,19 +51,22 @@ export function Login({ onLogin }: LoginProps) {
         <div className="login-logo">
           <img src="/openwa_logo.webp" alt="OpenWA" className="logo-icon" />
           <span className="version-info">
-            v{__APP_VERSION__} · {new Date(__BUILD_TIME__).toLocaleDateString()}
+            {t('login.version', {
+              version: __APP_VERSION__,
+              date: new Date(__BUILD_TIME__).toLocaleDateString(),
+            })}
           </span>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
-            <label htmlFor="apiKey">API Key</label>
+            <label htmlFor="apiKey">{t('login.apiKey')}</label>
             <div className="input-wrapper">
               <input
                 id="apiKey"
                 type={showKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
-                placeholder="Enter your API key"
+                placeholder={t('login.apiKeyPlaceholder')}
                 className={error ? 'error' : ''}
               />
               <button type="button" className="toggle-visibility" onClick={() => setShowKey(!showKey)}>
@@ -73,24 +77,24 @@ export function Login({ onLogin }: LoginProps) {
           </div>
 
           <button type="submit" className="connect-btn" disabled={isLoading}>
-            {isLoading ? 'Connecting...' : 'Connect'}
+            {isLoading ? t('login.connecting') : t('login.connect')}
           </button>
         </form>
 
         <p className="login-help">
-          Need help?{' '}
+          {t('login.help')}{' '}
           <a
             href="https://github.com/rmyndharis/OpenWA/blob/main/docs/01-project-overview.md"
             target="_blank"
             rel="noopener noreferrer"
           >
-            View Documentation
+            {t('login.viewDocs')}
           </a>
         </p>
       </div>
 
       <footer className="login-footer">
-        <span>Made with ❤️ by Yudhi Armyndharis and the OpenWA Community</span>
+        <span>{t('login.footer')}</span>
         <a
           href="https://github.com/rmyndharis/OpenWA"
           target="_blank"

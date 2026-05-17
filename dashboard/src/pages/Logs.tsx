@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, Search, Filter, Loader2, FileText } from 'lucide-react';
 import type { AuditLog } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -7,7 +8,8 @@ import { PageHeader } from '../components/PageHeader';
 import './Logs.css';
 
 export function Logs() {
-  useDocumentTitle('Audit Logs');
+  const { t } = useTranslation();
+  useDocumentTitle(t('logs.title'));
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -27,9 +29,7 @@ export function Logs() {
 
   const totalPages = Math.ceil(total / limit);
 
-  const formatTimestamp = (date: string) => {
-    return new Date(date).toLocaleString();
-  };
+  const formatTimestamp = (date: string) => new Date(date).toLocaleString();
 
   if (loading && logs.length === 0) {
     return (
@@ -45,12 +45,12 @@ export function Logs() {
   return (
     <div className="logs-page">
       <PageHeader
-        title="Audit Logs"
-        subtitle="Track and review all API actions and system events"
+        title={t('logs.title')}
+        subtitle={t('logs.subtitle')}
         actions={
           <button className="btn-secondary">
             <Download size={18} />
-            Export CSV
+            {t('logs.exportCsv')}
           </button>
         }
       />
@@ -60,7 +60,7 @@ export function Logs() {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search logs..."
+            placeholder={t('logs.searchPlaceholder')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -75,10 +75,10 @@ export function Logs() {
               setPage(1);
             }}
           >
-            <option value="all">All Severities</option>
-            <option value="info">Info</option>
-            <option value="warn">Warning</option>
-            <option value="error">Error</option>
+            <option value="all">{t('logs.severity.all')}</option>
+            <option value="info">{t('logs.severity.info')}</option>
+            <option value="warn">{t('logs.severity.warn')}</option>
+            <option value="error">{t('logs.severity.error')}</option>
           </select>
         </div>
       </div>
@@ -86,18 +86,18 @@ export function Logs() {
       <div className="logs-table-container">
         <div className="logs-table">
           <div className="table-row header">
-            <span>Timestamp</span>
-            <span>Action</span>
-            <span>Session</span>
-            <span>API Key</span>
-            <span>IP Address</span>
-            <span>Severity</span>
+            <span>{t('logs.columns.timestamp')}</span>
+            <span>{t('logs.columns.action')}</span>
+            <span>{t('logs.columns.session')}</span>
+            <span>{t('logs.columns.apiKey')}</span>
+            <span>{t('logs.columns.ip')}</span>
+            <span>{t('logs.columns.severity')}</span>
           </div>
           {filteredLogs.length === 0 ? (
             <div className="empty-table-state">
               <FileText size={48} strokeWidth={1} />
-              <h3>No logs found</h3>
-              <p>Audit logs will appear here as actions are performed</p>
+              <h3>{t('logs.empty.title')}</h3>
+              <p>{t('logs.empty.description')}</p>
             </div>
           ) : (
             filteredLogs.map(log => (
@@ -119,7 +119,7 @@ export function Logs() {
       {totalPages > 1 && (
         <div className="pagination">
           <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            Previous
+            {t('common.previous')}
           </button>
           <span className="page-numbers">
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
@@ -129,7 +129,7 @@ export function Logs() {
             ))}
           </span>
           <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-            Next
+            {t('common.next')}
           </button>
         </div>
       )}

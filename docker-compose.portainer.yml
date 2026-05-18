@@ -1,0 +1,49 @@
+version: "3.7"
+
+services:
+  openwa-api:
+    image: ${DOCKERHUB_USERNAME}/openwa:latest
+    networks:
+      - network_public
+    environment:
+      - API_KEY=${API_KEY}
+      - PORT=2785
+      - DASHBOARD_PORT=2886
+      - DB_TYPE=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_DATABASE=openwa
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - APP_URL=https://api.qeva.xyz
+      - DASHBOARD_URL=https://dash.qeva.xyz
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.openwa-api.rule=Host(`api.qeva.xyz`)
+        - traefik.http.routers.openwa-api.entrypoints=websecure
+        - traefik.http.routers.openwa-api.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.openwa-api.priority=1
+        - traefik.http.routers.openwa-api.service=openwa-api
+        - traefik.http.services.openwa-api.loadbalancer.server.port=2785
+        - traefik.http.services.openwa-api.loadbalancer.passHostHeader=true
+        - traefik.http.routers.openwa-dash.rule=Host(`dash.qeva.xyz`)
+        - traefik.http.routers.openwa-dash.entrypoints=websecure
+        - traefik.http.routers.openwa-dash.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.openwa-dash.priority=1
+        - traefik.http.routers.openwa-dash.service=openwa-dash
+        - traefik.http.services.openwa-dash.loadbalancer.server.port=2886
+        - traefik.http.services.openwa-dash.loadbalancer.passHostHeader=true
+
+networks:
+  network_public:
+    external: true
+    name: network_public

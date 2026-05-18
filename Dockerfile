@@ -29,19 +29,18 @@ COPY --from=builder /app/dashboard/dist /var/www/dashboard
 
 RUN mkdir -p ./data/sessions ./data/media && chown -R openwa:openwa /app
 
-RUN echo 'server { \n\
-    listen 2886; \n\
-    root /var/www/dashboard; \n\
-    index index.html; \n\
-    location / { \n\
-        try_files $uri $uri/ /index.html; \n\
-    } \n\
+RUN echo 'server {\n\
+    listen 2886;\n\
+    root /var/www/dashboard;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
 }' > /etc/nginx/sites-available/dashboard \
     && ln -s /etc/nginx/sites-available/dashboard /etc/nginx/sites-enabled/ \
     && rm -f /etc/nginx/sites-enabled/default
 
-COPY --chown=root:root docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN printf '#!/bin/sh\nnginx\nexec node dist/main\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 2785 2886
 
@@ -49,4 +48,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD node -e "require('http').get('http://localhost:2785/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/docker-entrypoint.sh"]
+CMD ["/start.sh"]

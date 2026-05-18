@@ -8,6 +8,9 @@ on:
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write    # <-- este es el que faltaba
 
     steps:
       - name: Checkout tu fork
@@ -19,6 +22,8 @@ jobs:
       - name: Sincronizar con el repo original
         id: sync
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/rmyndharis/OpenWA.git
           git fetch upstream
           LOCAL=$(git rev-parse HEAD)
@@ -28,17 +33,18 @@ jobs:
             echo "Sin cambios, no se buildea"
           else
             git merge upstream/main --no-edit
-            git push origin main
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git main
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Cambios detectados, se buildea"
           fi
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         if: steps.sync.outputs.changed == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         if: steps.sync.outputs.changed == 'true'
@@ -46,7 +52,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/openwa:latest
+          tags: ghcr.io/fer336/openwa:latest
 
       - name: Redeploy en Portainer
         if: steps.sync.outputs.changed == 'true'

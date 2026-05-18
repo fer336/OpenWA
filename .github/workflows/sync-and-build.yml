@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Forzar build aunque no haya cambios'
+        required: false
+        default: 'false'
 
 jobs:
   sync-and-build:
@@ -26,21 +31,18 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/rmyndharis/OpenWA.git
           git fetch upstream main
-
           UPSTREAM_COMMITS=$(git log HEAD..upstream/main --oneline | wc -l)
-
+          echo "Commits nuevos en upstream: $UPSTREAM_COMMITS"
           if [ "$UPSTREAM_COMMITS" -eq "0" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Sin cambios nuevos en upstream"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "$UPSTREAM_COMMITS commits nuevos detectados"
             git merge upstream/main --no-edit --strategy-option=theirs
             git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git HEAD:main --force
           fi
 
       - name: Login to GitHub Container Registry
-        if: steps.sync.outputs.changed == 'true'
+        if: steps.sync.outputs.changed == 'true' || github.event.inputs.force_build == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -48,7 +50,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        if: steps.sync.outputs.changed == 'true'
+        if: steps.sync.outputs.changed == 'true' || github.event.inputs.force_build == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -56,6 +58,6 @@ jobs:
           tags: ghcr.io/fer336/openwa:latest
 
       - name: Redeploy en Portainer
-        if: steps.sync.outputs.changed == 'true'
+        if: steps.sync.outputs.changed == 'true' || github.event.inputs.force_build == 'true'
         run: |
           curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}

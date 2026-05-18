@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   openwa-api:
-    image: ${DOCKERHUB_USERNAME}/openwa:latest
+    image: ghcr.io/fer336/openwa:latest
     networks:
       - network_public
     environment:

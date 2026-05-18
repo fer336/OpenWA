@@ -25,17 +25,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/rmyndharis/OpenWA.git
-          git fetch upstream
-          LOCAL=$(git rev-parse HEAD)
-          UPSTREAM=$(git rev-parse upstream/main)
-          if [ "$LOCAL" = "$UPSTREAM" ]; then
+          git fetch upstream main
+
+          UPSTREAM_COMMITS=$(git log HEAD..upstream/main --oneline | wc -l)
+
+          if [ "$UPSTREAM_COMMITS" -eq "0" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Sin cambios, no se buildea"
+            echo "Sin cambios nuevos en upstream"
           else
-            git merge upstream/main --no-edit --allow-unrelated-histories || true
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git main --force-with-lease
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Cambios detectados, se buildea"
+            echo "$UPSTREAM_COMMITS commits nuevos detectados"
+            git merge upstream/main --no-edit --strategy-option=theirs
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git HEAD:main --force
           fi
 
       - name: Login to GitHub Container Registry

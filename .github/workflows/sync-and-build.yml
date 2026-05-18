@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write    # <-- este es el que faltaba
+      packages: write
 
     steps:
       - name: Checkout tu fork
@@ -32,8 +32,8 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "Sin cambios, no se buildea"
           else
-            git merge upstream/main --no-edit
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git main
+            git merge upstream/main --no-edit --allow-unrelated-histories || true
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/fer336/OpenWA.git main --force-with-lease
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Cambios detectados, se buildea"
           fi

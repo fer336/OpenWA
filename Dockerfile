@@ -29,17 +29,21 @@ COPY --from=builder /app/dashboard/dist /var/www/dashboard
 
 RUN mkdir -p ./data/sessions ./data/media && chown -R openwa:openwa /app
 
-RUN echo 'server {\n\
+RUN printf 'server {\n\
     listen 2886;\n\
     root /var/www/dashboard;\n\
     index index.html;\n\
+    location /api {\n\
+        proxy_pass http://localhost:2785;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
     }\n\
 }' > /etc/nginx/sites-available/dashboard \
     && ln -s /etc/nginx/sites-available/dashboard /etc/nginx/sites-enabled/ \
     && rm -f /etc/nginx/sites-enabled/default
-
 RUN printf '#!/bin/sh\nnginx\nexec node dist/main\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 2785 2886
